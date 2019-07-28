@@ -1,41 +1,49 @@
 import axios from 'axios';
-import puppeteer from 'puppeteer';
+
+// puppeteer-extra is a drop-in replacement for puppeteer,
+// it augments the installed puppeteer with plugin functionality
+// @ts-ignore
+import puppeteer from "puppeteer-extra";
+
+// add stealth plugin and use defaults (all evasion techniques)
+// @ts-ignore
+import pluginStealth from "puppeteer-extra-plugin-stealth";
+puppeteer.use(pluginStealth())
+
+// Commands
+import login from './commands/login';
+import navigateToCreditSummary from './commands/navigateToCreditSummary';
 
 const url = 'https://www.wellsfargo.com/';
-
-const MAYBE_USER_NAME = process.env.USER_NAME;
-const MAYBE_PASSWORD = process.env.PASSWORD;
-if (!MAYBE_USER_NAME) {
-  console.error('process.env.USER_NAME is undefined. USER_NAME must be declared as an environment variable.');
-  process.exit(1);
-}
-if (!MAYBE_PASSWORD) {
-  console.error('process.env.PASSWORD is undefined. PASSWORD must be declared as an environment variable.');
-  process.exit(1);
-}
-const USER_NAME = MAYBE_USER_NAME as string;
-const PASSWORD = MAYBE_PASSWORD as string;
 
 const delay = (time: number) =>
   new Promise(resolve => setTimeout(resolve, time));
 
 (async () => {
   try {
-    const browser = await puppeteer.launch({ headless: false });
+    const browser = await puppeteer.launch({ headless: false, ignoreDefaultArgs: ['--enable-automation'] });
     const page = await browser.newPage();
     await page.goto(url);
 
-    await page.type('#userid', USER_NAME);
-    await page.type('#password', PASSWORD);
-    await page.screenshot({ path: 'screenshots/login.jpg' });
+    // Login to the account
+    await login(page).execute();
+    // Open the credit card account summary
+    await navigateToCreditSummary(page).execute();
 
-    await delay(2000);
-    await page.click('#btnSignon');
-    await delay(2000);
+    // Gather transactions
+    const transactions = await page.evaluate(`
+      Array.from(document.querySelectorAll('.detailed-transaction'))
+        .map(el => ({
+          transDate: $(el).find("td[headers='posted-trans trans-date']")[0].innerText,
+          postDate: $(el).find("td[headers='posted-trans post-date']")[0].innerText,
+          description: $(el).find("td[headers='posted-trans description']")[0].innerText,
+          amount: $(el).find("td[headers='posted-trans amount']")[0].innerText,
+          balance: $(el).find("td[headers='posted-trans balance']")[0].innerText,
+        }))`);
 
-    await page.screenshot({ path: 'screenshots/account_summary.jpg' });
+    console.log(`Transactions: ${ JSON.stringify(transactions) }`);
 
-    await browser.close();
+    //await browser.close();
   } catch (err) {
     console.error(err);
     process.exit(1);
