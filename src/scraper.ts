@@ -1,34 +1,26 @@
-import axios from 'axios';
-
-// puppeteer-extra is a drop-in replacement for puppeteer,
-// it augments the installed puppeteer with plugin functionality
-// @ts-ignore
-import puppeteer from "puppeteer-extra";
-
-// add stealth plugin and use defaults (all evasion techniques)
-// @ts-ignore
-import pluginStealth from "puppeteer-extra-plugin-stealth";
-puppeteer.use(pluginStealth())
+import { goTo, closeBrowser } from 'sneaky-puppeteer';
+import login from 'puppeteer-login';
 
 // Commands
-import login from './commands/login';
 import navigateToCreditSummary from './commands/navigateToCreditSummary';
-
-const url = 'https://www.wellsfargo.com/';
 
 const delay = (time: number) =>
   new Promise(resolve => setTimeout(resolve, time));
 
 (async () => {
   try {
-    const browser = await puppeteer.launch({ headless: false, ignoreDefaultArgs: ['--enable-automation'] });
-    const page = await browser.newPage();
-    await page.goto(url);
+    const page = await goTo('https://www.wellsfargo.com/');
 
     // Login to the account
-    await login(page).execute();
+    await login({
+      page,
+      loginButtonElementSelector: '#btnSignon',
+      passwordElementSelector: '#password',
+      userIdElementSelector: '#userid'
+    });
+
     // Open the credit card account summary
-    await navigateToCreditSummary(page).execute();
+    await navigateToCreditSummary(page);
 
     // Gather transactions
     const transactions = await page.evaluate(`
@@ -40,10 +32,9 @@ const delay = (time: number) =>
           amount: $(el).find("td[headers='posted-trans amount']")[0].innerText,
           balance: $(el).find("td[headers='posted-trans balance']")[0].innerText,
         }))`);
-
     console.log(`Transactions: ${ JSON.stringify(transactions) }`);
 
-    //await browser.close();
+    await closeBrowser();
   } catch (err) {
     console.error(err);
     process.exit(1);

@@ -1,11 +1,13 @@
 import { Page } from 'puppeteer';
 
-import Command from './Command';
 import getElement from './getElement';
 
-export default (page: Page) => new Command(async () => {
-  let link = await getElement('a > .icon.acct-tile.credit', page).execute();
-  if (link.parentElement) {
-    link.parentElement.click();
-  }
-});
+export default async (page: Page) => {
+  console.log('Navigating to credit card account summary');
+  await getElement('a > .icon.acct-tile.credit', page);
+
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'networkidle0' }),
+    page.evaluate('document.querySelector("a > .icon.acct-tile.credit").parentElement.click()'),
+  ]);
+};
