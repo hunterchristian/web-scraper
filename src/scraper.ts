@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { goTo, closeBrowser } from 'sneaky-puppeteer';
 import login from 'puppeteer-login';
 
@@ -31,8 +32,33 @@ const delay = (time: number) =>
           description: $(el).find("td[headers='posted-trans description']")[0].innerText,
           amount: $(el).find("td[headers='posted-trans amount']")[0].innerText,
           balance: $(el).find("td[headers='posted-trans balance']")[0].innerText,
-        }))`);
-    console.log(`Transactions: ${ JSON.stringify(transactions) }`);
+        }))
+    `);
+
+    
+    await page.click('.temp-auth-ec');
+    await delay (1000);
+    const temporaryAuthorizations = await page.evaluate(`
+      Array.from(document.querySelectorAll('.temporary-authorizations tbody tr'))
+        .map(el => {
+          var tdList = el.querySelectorAll('td');
+          return {
+            transDate: tdList[0].textContent.trim(),
+            postDate: "",
+            description: tdList[1].textContent.trim(),
+            amount: tdList[2].textContent.trim(),
+            balance: "",
+          };
+        })
+    `);
+
+    const dir = './scraper-output';
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
+    }
+    fs.writeFile(`${ dir }/data.json`, JSON.stringify({ data: [ ...temporaryAuthorizations, ...transactions ]}), err => {
+      if (err) return console.error(err)
+    });
 
     await closeBrowser();
   } catch (err) {

@@ -1,5 +1,7 @@
 .vscode/
 .history/
 dist/
-screenshots/
+scraper-output/
 node_modules/
+credentials.json
+token.json
