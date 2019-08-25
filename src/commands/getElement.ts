@@ -18,6 +18,10 @@ const getElementFromDocument = (selector: string, page: Page) =>
 
 export default async (selector: string, page: Page) => {
   let elem = await getElementFromDocument(selector, page);
+  if (process.env.PROD && !elem) {
+    throw Error(`Could not locate element in page: "${ selector }" URL: ${ page.url() }`);
+  }
+
   while(!elem) {
     console.error(`Could not locate element in page: ${ selector }. Prompting debug.`);
     await promptForDebug(selector, `Could not find element for selector: ${ selector }. Perform any necessary page navigation and then execute debugFinished().`, page);
