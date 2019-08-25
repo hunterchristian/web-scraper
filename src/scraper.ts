@@ -1,18 +1,24 @@
 import fs from 'fs';
 import { goTo, closeBrowser } from 'sneaky-puppeteer';
 import login from 'puppeteer-login';
+import * as Sentry from '@sentry/node';
 
-// Commands
 import navigateToCreditSummary from './commands/navigateToCreditSummary';
+
+Sentry.init({ dsn: 'https://3581fa05cd364e2dbdbc391b08125aba@sentry.io/1541095' });
 
 const delay = (time: number) =>
   new Promise(resolve => setTimeout(resolve, time));
 
+const BANK_URL = 'https://www.wellsfargo.com/';
+
 (async () => {
   try {
-    const page = await goTo('https://www.wellsfargo.com/');
+    console.log(`Navigating to ${ BANK_URL } ...`);
+    const page = await goTo(BANK_URL);
 
     // Login to the account
+    console.log('Logging into account...');
     await login({
       page,
       loginButtonElementSelector: '#btnSignon',
@@ -21,9 +27,11 @@ const delay = (time: number) =>
     });
 
     // Open the credit card account summary
+    console.log('Navigating to credit card account summary...');
     await navigateToCreditSummary(page);
 
     // Gather transactions
+    console.log('Gathering posted transactions...');
     const transactions = await page.evaluate(`
       Array.from(document.querySelectorAll('.detailed-transaction'))
         .map(el => ({
@@ -35,7 +43,7 @@ const delay = (time: number) =>
         }))
     `);
 
-    
+    console.log('Gathering temporary authorizations...');
     await page.click('.temp-auth-ec');
     await delay (1000);
     const temporaryAuthorizations = await page.evaluate(`
@@ -52,6 +60,7 @@ const delay = (time: number) =>
         })
     `);
 
+    console.log('Scraping complete. Dumping output to ./scraper-output/data.json...');
     const dir = './scraper-output';
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
@@ -60,6 +69,7 @@ const delay = (time: number) =>
       if (err) return console.error(err)
     });
 
+    console.log('Closing browser...');
     await closeBrowser();
   } catch (err) {
     console.error(err);
